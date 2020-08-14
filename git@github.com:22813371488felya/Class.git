@@ -1,0 +1,220 @@
+import org.bukkit.plugin.java.*;
+import org.bukkit.event.*;
+import net.milkbowl.vault.economy.*;
+import org.bukkit.configuration.file.*;
+import org.bukkit.command.*;
+import org.bukkit.entity.*;
+import com.gmail.filoghost.holographicdisplays.api.*;
+import org.bukkit.plugin.*;
+import org.bukkit.*;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.*;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.*;
+import net.md_5.bungee.api.chat.*;
+import net.md_5.bungee.chat.*;
+import net.minecraft.server.v1_8_R3.*;
+import org.bukkit.inventory.meta.*;
+import org.bukkit.craftbukkit.v1_8_R3.entity.*;
+import org.bukkit.craftbukkit.v1_8_R3.inventory.*;
+
+public class Main extends JavaPlugin implements Listener
+{
+    static Plugin plugin;
+    public static Main instance;
+    public static Economy economy;
+    public static Main m;
+    public static FileConfiguration c;
+    public static int count;
+    Map<String, Integer> stats;
+    ArrayList<Integer> values;
+    
+    public Main() {
+        this.stats = new HashMap<String, Integer>();
+        this.values = new ArrayList<Integer>();
+    }
+    
+    public static Main getInstance() {
+        return Main.instance;
+    }
+    
+    public void onEnable() {
+        Main.m = this;
+        Main.c = this.getConfig();
+        Main.c.options().copyDefaults(true);
+        this.saveConfig();
+        this.setupEconomy();
+        Bukkit.getPluginManager().registerEvents((Listener)new Menu(), (Plugin)this);
+        Bukkit.getPluginManager().registerEvents((Listener)new Food(), (Plugin)this);
+        Bukkit.getPluginManager().registerEvents((Listener)new FallDamage(), (Plugin)this);
+        Bukkit.getPluginManager().registerEvents((Listener)new KeepInventory(), (Plugin)this);
+        Bukkit.getPluginManager().registerEvents((Listener)new JoinMessage(), (Plugin)this);
+        Bukkit.getPluginManager().registerEvents((Listener)new Prefix(), (Plugin)this);
+        Bukkit.getPluginManager().registerEvents((Listener)new Suffix(), (Plugin)this);
+    }
+    
+    public boolean onCommand(final CommandSender sender, final Command cmd, final String label, final String[] args) {
+        if (cmd.getName().equalsIgnoreCase("coins")) {
+            final Player p = (Player)sender;
+            if (args.length > 0) {
+                if (args[0].equalsIgnoreCase("send")) {
+                    final String a = args[1];
+                    final String b = args[2];
+                    final int c = Integer.parseInt(b);
+                    if (Coins.getCoins(p.getName()) >= c) {
+                        Coins.setCoins(p.getName(), Coins.getCoins(p.getName()) - c);
+                        Coins.setCoins(a, Coins.getCoins(a.toString()) + c);
+                        p.sendMessage("§7\u25b8 §a\u0412\u044b \u043f\u0435\u0440\u0435\u0434\u0430\u043b\u0438 §e" + c + " §a\u043a\u043e\u0438\u043d\u043e\u0432 \u0438\u0433\u0440\u043e\u043a\u0443 §e" + a);
+                        Bukkit.getPlayer(a).sendMessage("§7\u25b8 §a\u0418\u0433\u0440\u043e\u043a §e" + p.getName() + " §a\u043f\u0435\u0440\u0435\u0432\u0435\u043b \u0432\u0430\u043c §e" + c + " §a\u043a\u043e\u0438\u043d\u043e\u0432");
+                    }
+                    else {
+                        p.sendMessage("§7\u25b8 §c\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u043a\u043e\u0438\u043d\u043e\u0432 \u0434\u043b\u044f \u043f\u0435\u0440\u0435\u0434\u0430\u0447\u0438");
+                    }
+                    this.saveConfig();
+                }
+                if (p.hasPermission("meedway.donate.admin")) {
+                    if (args[0].equalsIgnoreCase("get")) {
+                        final String a = args[1];
+                        p.sendMessage("§6:" + Coins.getCoins(a));
+                    }
+                    if (args[0].equalsIgnoreCase("add")) {
+                        final String a = args[1];
+                        final String b = args[2];
+                        final int c = Integer.parseInt(b);
+                        Coins.setCoins(a, Coins.getCoins(a.toString()) + c);
+                        this.saveConfig();
+                    }
+                }
+            }
+            return true;
+        }
+        if (cmd.getName().equalsIgnoreCase("store-meedway")) {
+            if (Bukkit.getConsoleSender() == sender && args.length > 0) {
+                if (args[0].equalsIgnoreCase("get")) {
+                    final String a2 = args[1];
+                    System.out.println("§6:" + Coins.getCoins(a2));
+                }
+                if (args[0].equalsIgnoreCase("add")) {
+                    final String a2 = args[1];
+                    final String b2 = args[2];
+                    final int c2 = Integer.parseInt(b2);
+                    Coins.setCoins(a2, Coins.getCoins(a2.toString()) + c2);
+                    this.saveConfig();
+                }
+            }
+            return true;
+        }
+        if (cmd.getName().equalsIgnoreCase("addcoins")) {
+            if (sender.isOp() || sender.hasPermission("mdonate.admin") || Bukkit.getConsoleSender() == sender) {
+                if (args.length != 0) {
+                    if (args.length > 0) {
+                        if (args[0].equalsIgnoreCase("give")) {
+                            if (args[1] != null || args[2] != null) {
+                                final int givecoins = Integer.parseInt(args[2]);
+                                Coins.setCoins(args[1].toString(), Coins.getCoins(args[1].toString()) + givecoins);
+                                this.saveConfig();
+                                sender.sendMessage("[DONATE] GIVE \"" + args[1] + "\" : " + givecoins + " COIN(S).");
+                            }
+                        }
+                        else if (args[0].equalsIgnoreCase("get")) {
+                            if (args[1] != null) {
+                                sender.sendMessage("[DONATE] GET \"" + args[1] + "\" " + Coins.getCoins(args[1]) + " COIN(S)");
+                            }
+                            else {
+                                sender.sendMessage("[DONATE] §cNO PLAYER");
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                sender.sendMessage("[DONATE] YOUR ACCOUNT BANNED");
+            }
+        }
+        if (cmd.getName().equalsIgnoreCase("store-money")) {
+            if (Bukkit.getConsoleSender() == sender && args.length > 0) {
+                if (args[0].equalsIgnoreCase("get")) {
+                    final String s = args[1];
+                }
+                if (args[0].equalsIgnoreCase("add")) {
+                    final String a2 = args[1];
+                    final String b2 = args[2];
+                    final int c2 = Integer.parseInt(b2);
+                    Main.economy.depositPlayer((OfflinePlayer)Bukkit.getPlayer(a2), (double)c2);
+                }
+            }
+            return true;
+        }
+        if (cmd.getName().equalsIgnoreCase("donate")) {
+            final Player p = (Player)sender;
+            if (p.getWorld().equals(Bukkit.getWorld("world"))) {
+                p.chat("/donate1");
+            }
+            else {
+                p.sendMessage("§7\u25b8 §a\u042d\u0442\u0430 \u043a\u043e\u043c\u0430\u043d\u0434\u0430 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442 \u0442\u043e\u043b\u044c\u043a\u043e \u0432 \u0420\u041f\u0413 \u043c\u0438\u0440\u0435!");
+            }
+        }
+        if (cmd.getName().equalsIgnoreCase("store-stats")) {
+            final Player p = (Player)sender;
+            if (p.hasPermission("meedway.donate.admin")) {
+                final Location where = p.getLocation();
+                final Hologram hologram = HologramsAPI.createHologram((Plugin)this, where);
+                hologram.appendTextLine("\u0422\u043e\u043f \u0434\u043e\u043d\u0430\u0442\u0435\u0440\u043e\u0432:");
+            }
+            return true;
+        }
+        return false;
+    }
+    
+    private boolean setupEconomy() {
+        final RegisteredServiceProvider economyProvider = this.getServer().getServicesManager().getRegistration((Class)Economy.class);
+        if (economyProvider != null) {
+            Main.economy = (Economy)economyProvider.getProvider();
+        }
+        return Main.economy != null;
+    }
+    
+    public void onINFO(final Player p) {
+        final ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+        final BookMeta bm = (BookMeta)book.getItemMeta();
+        List<IChatBaseComponent> pages;
+        try {
+            pages = (List<IChatBaseComponent>)CraftMetaBook.class.getDeclaredField("pages").get(bm);
+        }
+        catch (ReflectiveOperationException ex) {
+            ex.printStackTrace();
+            return;
+        }
+        bm.setAuthor("BartiWorld");
+        bm.setTitle("\u0418\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f");
+        final TextComponent text = new TextComponent("§b§l    \u041b\u0410\u0420\u0415\u0426 \u0418\u041d\u0424\u041e\u0420\u041c\u0410\u0426\u0418\u0418 §8\u041f\u0435\u0440\u0435\u0439\u0434\u0438\u0442\u0435 \u043d\u0430 \u0441\u0430\u0439\u0442 \u0441 \u0413\u0410\u0419\u0414\u0410\u041c\u0418 \u043f\u043e \u0432\u0441\u0435\u043c \u0432\u043e\u0437\u043c\u043e\u0436\u043d\u044b\u043c \u043f\u043e\u043d\u044f\u0442\u0438\u044f\u043c \u0441\u0435\u0440\u0432\u0435\u0440\u0430, \u043d\u0430\u0447\u0438\u043d\u0430\u044f \u043e\u0442 \u043a\u0432\u0435\u0441\u0442\u043e\u0432, \u043a\u0440\u0430\u0444\u0442\u043e\u0432, \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u044f \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432, \u043b\u043e\u043a\u0430\u0446\u0438\u0439 \u0438 \u0431\u043e\u0441\u0441\u043e\u0432, \u0437\u0430\u043a\u0430\u043d\u0447\u0438\u0432\u0430\u044f \u0442\u0430\u0439\u043d\u044b\u043c\u0438 \u0442\u043e\u0440\u0433\u043e\u0432\u0446\u0430\u043c\u0438, \u0434\u0430\u043d\u0436\u0430\u043c\u0438 \u0438 \u0432\u043e\u0439\u043d\u0430\u043c\u0438 \u043a\u043b\u0430\u043d\u043e\u0432!                                             ");
+        final TextComponent text_site = new TextComponent("§d§l\u041e\u0422\u041a\u0420\u042b\u0422\u042c \u0421\u0410\u0419\u0422?!");
+        text_site.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "http://mw-rpg.ru/wiki/"));
+        text_site.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "http://mw-rpg.ru/wiki/"));
+        text_site.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§e\u041a\u043b\u0438\u043a\u043d\u0438\u0442\u0435 \u0447\u0442\u043e\u0431\u044b \u043e\u0442\u043a\u0440\u044b\u0442\u044c \u0441\u0441\u044b\u043b\u043a\u0443!").create()));
+        final IChatBaseComponent page = IChatBaseComponent.ChatSerializer.a(ComponentSerializer.toString(new BaseComponent[] { text, text_site }));
+        pages.add(page);
+        book.setItemMeta((ItemMeta)bm);
+        final ItemStack oldItem = p.getItemInHand();
+        p.setItemInHand(book);
+        Bukkit.getScheduler().runTaskLater((Plugin)this, (Runnable)new Runnable() {
+            @Override
+            public void run() {
+                ((CraftPlayer)p).getHandle().openBook(CraftItemStack.asNMSCopy(book));
+                p.setItemInHand(oldItem);
+            }
+        }, 5L);
+    }
+    
+    public void onDisable() {
+        this.saveConfig();
+    }
+    
+    static {
+        Main.instance = null;
+        Main.economy = null;
+        Main.count = 0;
+    }
+}
